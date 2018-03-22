@@ -1,0 +1,537 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jun 22 10:28:25 2016
+
+@author: Administrator
+"""
+
+import math
+import numpy as np
+import scipy.stats
+from scipy.optimize import curve_fit
+import csv
+from  more_itertools import unique_everseen
+#import matplotlib.pyplot as plt
+import winsound
+
+
+def func(cov,gam0,gam1,k,d):
+    return (gam0-((gam0-gam1)*(np.exp(-((k*cov)**d)))))
+
+
+split_list = [0.3]#, 0.02, 0.03, 0.04, 0.05, 0.07, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99]#DEfect in Basal, i.e. % of Not Edge that is defective
+Temp_list = [25]#, 0.96, 0.955, 0.95, 0.945, 0.94, 0.92, 0.9, 0.85, 0.8, 0.75, 0.7, 0.6, 0.5, 0.4]
+mu_3_list = [0.04]#, 0.05, 0.06, 0.07, 0.08, 0.09]   #Defect
+mu_2_list = [0.042]  #Bulk
+mu_1_list = [0.039]#, 0.06, 0.07, 0.08, 0.09]  #Edge
+sigma_3_list = [0.0175]#, 0.002, 0.005, 0.01, 0.012, 0.015, 0.0175, 0.02]  #Defect
+sigma_2_list = [0.002]   #Bulk
+sigma_1_list = [0.002]#, 0.01, 0.015, 0.02]   #Edge
+for split in split_list:
+    for mu_3 in mu_3_list:
+        for mu_2 in mu_2_list:
+            for mu_1 in mu_1_list:
+                for sigma_3 in sigma_3_list:
+                    for sigma_2 in sigma_2_list:
+                        for sigma_1 in sigma_1_list:
+                            popt_list = []
+                            SE_profile_list = []
+                            basal_pop_list = [0.999, 0.99, 0.975, 0.95, 0.925, 0.9, 0.85, 0.8, 0.775, 0.75, 0.725, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]#, 0.05, 0.01, 0.001]
+                            for basal_pop in basal_pop_list:
+                                Population_3 = round((split*(basal_pop**16))*basal_pop,5) # Defect population
+                                Population_2 = basal_pop-Population_3 #Bulk Population
+                                Population_1 = 1 - basal_pop # Edge population
+                                Pop_list =[]
+                                SE_list = []
+                                granularity = 1000
+                                final_cov = granularity-1
+                                inject_size = float(1)/granularity
+                                
+                        #Defect        ####################################################################################################################
+                                #sigma_3 = 0.0175
+                                #mu_3 = 0.04
+                                step_3 = 0.005
+                                
+                                SE_array_3 = np.arange(mu_3-(5*sigma_3),5*sigma_3 + mu_3+step_3,step_3)
+                                for s in SE_array_3:
+                                    if s < 0:
+                                        SE_array_3 = np.delete(SE_array_3,0) 
+                                for s in SE_array_3:
+                                    s = round(s,4)
+                                    SE_list.append(s)
+                                
+                                Initial_Pop_list_3 = []
+                                for x in SE_array_3:
+                                    k = scipy.stats.norm(mu_3, sigma_3).pdf(x)
+                                    Initial_Pop_list_3.append(k*step_3)
+                        
+                                sum_pop = sum(Initial_Pop_list_3)
+                                for p in Initial_Pop_list_3:
+                                    Pop_list.append(p*Population_3/sum_pop) # remember to put*Population_3 back in
+                                
+                        #Bulk        #################################################################################################################
+                                #sigma_2 = 0.002
+                                #mu_2 = 0.042
+                                step_2 = 0.005
+                                
+                                SE_array_2 = np.arange(mu_2-(5*sigma_2),5*sigma_2 + mu_2+step_2,step_2)
+                                for s in SE_array_2:
+                                    if s < 0:
+                                        SE_array_2 = np.delete(SE_array_2,0)
+                                for s in SE_array_2:
+                                    s = round(s,4)
+                                    SE_list.append(s)
+                                    
+                                Initial_Pop_list_2 = []
+                                for x in SE_array_2:
+                                    k = scipy.stats.norm(mu_2, sigma_2).pdf(x)
+                                    Initial_Pop_list_2.append(k*step_2)
+                                
+                                sum_pop = sum(Initial_Pop_list_2)
+                                for p in Initial_Pop_list_2:
+                                    Pop_list.append(p*Population_2/sum_pop)
+                                
+                        #Edge        ##############################################################################################################    
+                                #sigma_1 = 0.002
+                                #mu_1 = 0.039
+                                step_1 = 0.005
+                                    
+                                SE_array_1 = np.arange(mu_1 - (5*sigma_1), 5*sigma_1 + mu_1 + step_1, step_1)
+                                for s in SE_array_1:
+                                    if s < 0:
+                                        SE_array_1 = np.delete(SE_array_1,0)
+                                for s in SE_array_1:
+                                    s = round(s,4)
+                                    SE_list.append(s)
+                                
+                                Initial_Pop_list_1 = []
+                                for x in SE_array_1:
+                                    k = scipy.stats.norm(mu_1, sigma_1).pdf(x)
+                                    Initial_Pop_list_1.append(k*step_1*Population_1)
+                                    
+                                sum_pop = sum(Initial_Pop_list_1)
+                                for p in Initial_Pop_list_1:
+                                    Pop_list.append(p*Population_1/sum_pop)
+                                dsfg = tuple(Pop_list)
+                                D_Pop_list = list(dsfg)
+                                Hept_Pop_list = list(tuple(Pop_list))
+                                Oct_Pop_list = list(tuple(Pop_list))
+                                Non_Pop_list = list(tuple(Pop_list))
+                                    
+                        #Hexane    ###############################################################################################################
+                                    
+                                SE_Hexane = 0.0184
+                                area_Hexane = 5.15E-19
+                                TinC = 25 #Temp in Celsius
+                                kT = 1.38e-23*(273.15 + TinC)
+                                
+                                Hexane_P_list = []
+                                for SE in SE_list:
+                                    free_energy_absorption = -2 * area_Hexane * math.sqrt(SE * SE_Hexane)
+                                    Hexane_P = math.exp(-(free_energy_absorption/kT))
+                                    Hexane_P_list.append(Hexane_P)
+                                
+                                Hexane_no_duplicates = list(unique_everseen(Hexane_P_list))
+                                Hexane_Ptotal = sum(Hexane_no_duplicates) 
+                                
+                                Hexane_Energy_prob_list = []
+                                for Hexane_P in Hexane_P_list:
+                                    Hexane_Energy_prob_list.append(Hexane_P/Hexane_Ptotal)
+                                
+                                ##############################################################################################################
+                                
+                                coverage = []
+                                Hexane_SE_measured_list = []
+                                Hexane_SE_actual_list = [] 
+                                injected_amount = 0
+                                
+                                for i in range(granularity-1):
+                                    H_PreNorm_probs = [a*b for a,b in zip(Pop_list,Hexane_Energy_prob_list)]
+                                    norm_const = 1/sum(H_PreNorm_probs)
+                                
+                                    Postnorm_prob_list = []
+                                    for j in H_PreNorm_probs:
+                                        postnorm_prob = norm_const*j
+                                        Postnorm_prob_list.append(postnorm_prob)
+                                        
+                                    Probe_SE_list = [c*d for c,d in zip(Postnorm_prob_list,SE_list)]
+                                    SE_meas = sum(Probe_SE_list)
+                                    Hexane_SE_measured_list.append(SE_meas)
+                                    SE_actual = np.mean(Hexane_SE_measured_list)
+                                    Hexane_SE_actual_list.append(SE_actual)
+                                    
+                                        
+                                    for Pop_prob, post_norm_prob in zip(Pop_list, Postnorm_prob_list):
+                                        Pop_prob = ((Pop_prob * (float(1) - injected_amount)) - (inject_size * post_norm_prob)) / (float(1)-(injected_amount+inject_size))
+                                        Pop_list.pop(0)
+                                        if Pop_prob < 0:
+                                            Pop_prob = 0
+                                        Pop_list.append(Pop_prob)
+                                        
+                                    injected_amount += inject_size
+                                    injected_amount = round(injected_amount,5)
+                                    coverage.append((float(i)+1)/granularity)
+                                    print(sum(Pop_list))
+                        
+
+                            #Heptane  ################################################################################################################
+                                    
+                                SE_Heptane = 0.0203
+                                area_Heptane = 5.7E-19
+                                
+                                Heptane_P_list = []
+                                for SE in SE_list:
+                                    Hept_free_energy_absorption = -2 * area_Heptane * math.sqrt(SE * SE_Heptane)
+                                    Heptane_P = math.exp(-(Hept_free_energy_absorption/kT))
+                                    Heptane_P_list.append(Heptane_P)
+                                
+                                Heptane_no_duplicates = list(unique_everseen(Heptane_P_list))
+                                Heptane_Ptotal = sum(Heptane_no_duplicates) 
+                                
+                                Heptane_Energy_prob_list = []
+                                for Heptane_P in Heptane_P_list:
+                                    Heptane_Energy_prob_list.append(Heptane_P/Heptane_Ptotal)
+                                
+                                ##############################################################################################################
+                                    
+                                Hept_coverage = []
+                                Heptane_SE_measured_list = []
+                                Heptane_SE_actual_list = [] 
+                                Hept_injected_amount = 0
+                                
+                                for i in range(final_cov):
+                                    Hept_PreNorm_probs = [a*b for a,b in zip(Hept_Pop_list,Heptane_Energy_prob_list)]
+                                    Hept_norm_const = 1/sum(Hept_PreNorm_probs)
+                                
+                                    Hept_Postnorm_prob_list = []
+                                    for j in Hept_PreNorm_probs:
+                                        Hept_postnorm_prob = Hept_norm_const*j
+                                        Hept_Postnorm_prob_list.append(Hept_postnorm_prob)
+                                        
+                                    Hept_Probe_SE_list = [c*d for c,d in zip(Hept_Postnorm_prob_list,SE_list)]
+                                    Hept_SE_meas = sum(Hept_Probe_SE_list)
+                                    Heptane_SE_measured_list.append(Hept_SE_meas)
+                                    Hept_SE_actual = np.mean(Heptane_SE_measured_list)
+                                    Heptane_SE_actual_list.append(Hept_SE_actual)
+                                    
+                                        
+                                    for Hept_Pop_prob, Hept_post_norm_prob in zip(Hept_Pop_list, Hept_Postnorm_prob_list):
+                                        Hept_Pop_prob = ((Hept_Pop_prob * (float(1) - Hept_injected_amount)) - (inject_size * Hept_post_norm_prob)) / (float(1)-(Hept_injected_amount+inject_size))
+                                        Hept_Pop_list.pop(0)
+                                        if Hept_Pop_prob < 0:
+                                            Hept_Pop_prob = 0
+                                        Hept_Pop_list.append(Hept_Pop_prob)
+                                        
+                                    Hept_injected_amount += inject_size
+                                    Hept_injected_amount = round(Hept_injected_amount,5)
+                                    Hept_coverage.append((float(i)+1)/granularity)
+                                    print(sum(Hept_Pop_list))
+                                           
+                            
+                         #Octane    ###############################################################################################################
+                                    
+                                SE_Octane = 0.0213
+                                area_Octane = 6.3E-19
+                                
+                                Octane_P_list = []
+                                for SE in SE_list:
+                                    Oct_free_energy_absorption = -2 * area_Octane * math.sqrt(SE * SE_Octane)
+                                    Octane_P = math.exp(-(Oct_free_energy_absorption/kT))
+                                    Octane_P_list.append(Octane_P)
+                                
+                                Octane_no_duplicates = list(unique_everseen(Octane_P_list))
+                                Octane_Ptotal = sum(Octane_no_duplicates) 
+                                
+                                Octane_Energy_prob_list = []
+                                for Octane_P in Octane_P_list:
+                                    Octane_Energy_prob_list.append(Octane_P/Octane_Ptotal)
+                                
+                                ##############################################################################################################
+                                   
+                                Oct_coverage = []
+                                Octane_SE_measured_list = []
+                                Octane_SE_actual_list = [] 
+                                Oct_injected_amount = 0
+                                
+                                for i in range(final_cov):
+                                    Oct_PreNorm_probs = [a*b for a,b in zip(Oct_Pop_list,Octane_Energy_prob_list)]
+                                    Oct_norm_const = 1/sum(Oct_PreNorm_probs)
+                                
+                                    Oct_Postnorm_prob_list = []
+                                    for j in Oct_PreNorm_probs:
+                                        Oct_postnorm_prob = Oct_norm_const*j
+                                        Oct_Postnorm_prob_list.append(Oct_postnorm_prob)
+                                        
+                                    Oct_Probe_SE_list = [c*d for c,d in zip(Oct_Postnorm_prob_list,SE_list)]
+                                    Oct_SE_meas = sum(Oct_Probe_SE_list)
+                                    Octane_SE_measured_list.append(Oct_SE_meas)
+                                    Oct_SE_actual = np.mean(Octane_SE_measured_list)
+                                    Octane_SE_actual_list.append(Oct_SE_actual)
+                                    
+                                        
+                                    for Oct_Pop_prob, Oct_post_norm_prob in zip(Oct_Pop_list, Oct_Postnorm_prob_list):
+                                        Oct_Pop_prob = ((Oct_Pop_prob * (float(1) - Oct_injected_amount)) - (inject_size * Oct_post_norm_prob)) / (float(1)-(Oct_injected_amount+inject_size))
+                                        Oct_Pop_list.pop(0)
+                                        if Oct_Pop_prob < 0:
+                                            Oct_Pop_prob = 0
+                                        Oct_Pop_list.append(Oct_Pop_prob)
+                                        
+                                    Oct_injected_amount += inject_size
+                                    Oct_injected_amount = round(Oct_injected_amount,5)
+                                    Oct_coverage.append((float(i)+1)/granularity)
+                                    print(sum(Oct_Pop_list))
+                            
+                          #Nonane  ################################################################################################################
+                                    
+                                SE_Nonane = 0.0227
+                                area_Nonane = 6.9E-19
+                                
+                                Nonane_P_list = []
+                                for SE in SE_list:
+                                    Non_free_energy_absorption = -2 * area_Nonane * math.sqrt(SE * SE_Nonane)
+                                    Nonane_P = math.exp(-(Non_free_energy_absorption/kT))
+                                    Nonane_P_list.append(Nonane_P)
+                                
+                                Nonane_no_duplicates = list(unique_everseen(Nonane_P_list))
+                                Nonane_Ptotal = sum(Nonane_no_duplicates) 
+                                
+                                Nonane_Energy_prob_list = []
+                                for Nonane_P in Nonane_P_list:
+                                    Nonane_Energy_prob_list.append(Nonane_P/Nonane_Ptotal)
+                                
+                                ##############################################################################################################
+                                    
+                                Non_coverage = []
+                                Nonane_SE_measured_list = []
+                                Nonane_SE_actual_list = [] 
+                                Non_injected_amount = 0
+                                
+                                for i in range(final_cov):
+                                    Non_PreNorm_probs = [a*b for a,b in zip(Non_Pop_list, Nonane_Energy_prob_list)]
+                                    Non_norm_const = 1/sum(Non_PreNorm_probs)
+                                
+                                    Non_Postnorm_prob_list = []
+                                    for j in Non_PreNorm_probs:
+                                        Non_postnorm_prob = Non_norm_const*j
+                                        Non_Postnorm_prob_list.append(Non_postnorm_prob)
+                                        
+                                    Non_Probe_SE_list = [c*d for c,d in zip(Non_Postnorm_prob_list,SE_list)]
+                                    Non_SE_meas = sum(Non_Probe_SE_list)
+                                    Nonane_SE_measured_list.append(Non_SE_meas)
+                                    Non_SE_actual = np.mean(Nonane_SE_measured_list)
+                                    Nonane_SE_actual_list.append(Non_SE_actual)
+                                    
+                                        
+                                    for Non_Pop_prob, Non_post_norm_prob in zip(Non_Pop_list, Non_Postnorm_prob_list):
+                                        Non_Pop_prob = ((Non_Pop_prob * (float(1) - Non_injected_amount)) - (inject_size * Non_post_norm_prob)) / (float(1)-(Non_injected_amount+inject_size))
+                                        Non_Pop_list.pop(0)
+                                        if Non_Pop_prob < 0:
+                                            Non_Pop_prob = 0
+                                        Non_Pop_list.append(Non_Pop_prob)
+                                        
+                                    Non_injected_amount += inject_size
+                                    Non_injected_amount = round(Non_injected_amount,5)
+                                    Non_coverage.append((float(i)+1)/granularity)
+                                    print(sum(Non_Pop_list))
+    
+
+                        #Decane  ################################################################################################################
+                                
+                                SE_Decane = 0.0234
+                                area_Decane = 7.5E-19
+                                
+                                Decane_P_list = []
+                                for SE in SE_list:
+                                    D_free_energy_absorption = -2 * area_Decane * math.sqrt(SE * SE_Decane)
+                                    Decane_P = math.exp(-(D_free_energy_absorption/kT))
+                                    Decane_P_list.append(Decane_P)
+                                
+                                Decane_no_duplicates = list(unique_everseen(Decane_P_list))
+                                Decane_Ptotal = sum(Decane_no_duplicates) 
+                                
+                                Decane_Energy_prob_list = []
+                                for Decane_P in Decane_P_list:
+                                    Decane_Energy_prob_list.append(Decane_P/Decane_Ptotal)
+                                
+                                ##############################################################################################################
+                                    
+                                D_coverage = []
+                                Decane_SE_measured_list = []
+                                Decane_SE_actual_list = [] 
+                                D_injected_amount = 0
+                                
+                                for i in range(granularity-1):
+                                    D_PreNorm_probs = [a*b for a,b in zip(D_Pop_list,Decane_Energy_prob_list)]
+                                    D_norm_const = 1/sum(D_PreNorm_probs)
+                                
+                                    D_Postnorm_prob_list = []
+                                    for j in D_PreNorm_probs:
+                                        D_postnorm_prob = D_norm_const*j
+                                        D_Postnorm_prob_list.append(D_postnorm_prob)
+                                        
+                                    D_Probe_SE_list = [c*d for c,d in zip(D_Postnorm_prob_list,SE_list)]
+                                    D_SE_meas = sum(D_Probe_SE_list)
+                                    Decane_SE_measured_list.append(D_SE_meas)
+                                    D_SE_actual = np.mean(Decane_SE_measured_list)
+                                    Decane_SE_actual_list.append(D_SE_actual)
+                                    
+                                        
+                                    for D_Pop_prob, D_post_norm_prob in zip(D_Pop_list, D_Postnorm_prob_list):
+                                        D_Pop_prob = ((D_Pop_prob * (float(1) - D_injected_amount)) - (inject_size * D_post_norm_prob)) / (float(1)-(D_injected_amount+inject_size))
+                                        D_Pop_list.pop(0)
+                                        if D_Pop_prob < 0:
+                                            D_Pop_prob = 0
+                                        D_Pop_list.append(D_Pop_prob)
+                                        
+                                    D_injected_amount += inject_size
+                                    D_injected_amount = round(D_injected_amount,5)
+                                    D_coverage.append((float(i)+1)/granularity)
+                                    print(sum(D_Pop_list))
+                                    
+                        ########################################################################################################################            
+                                SE_profile = []
+                                RTlnVn_hex = []        
+                                RTlnVn_hept = []
+                                RTlnVn_oct = []        
+                                RTlnVn_non = []       
+                                RTlnVn_dec = []
+                                
+                                for hex_experienced_nrj in Hexane_SE_actual_list:
+                                    hex_rtlnvn = 84136*(np.sqrt(hex_experienced_nrj))
+                                    RTlnVn_hex.append(hex_rtlnvn)
+                                    
+                                for hept_experienced_nrj in Heptane_SE_actual_list:
+                                    hept_rtlnvn = 97812*(np.sqrt(hept_experienced_nrj))
+                                    RTlnVn_hept.append(hept_rtlnvn)
+            
+                                for oct_experienced_nrj in Octane_SE_actual_list:
+                                    oct_rtlnvn = 110739*(np.sqrt(oct_experienced_nrj))
+                                    RTlnVn_oct.append(oct_rtlnvn)
+            
+                                for non_experienced_nrj in Nonane_SE_actual_list:
+                                    non_rtlnvn = 125208*(np.sqrt(non_experienced_nrj))
+                                    RTlnVn_non.append(non_rtlnvn)
+                                    
+                                for dec_experienced_nrj in Decane_SE_actual_list:
+                                    dec_rtlnvn = 138978*(np.sqrt(dec_experienced_nrj))
+                                    RTlnVn_dec.append(dec_rtlnvn)
+                                            
+                                y2_y1 = [f-g for f,g in zip(RTlnVn_dec,RTlnVn_hex)]
+                                x2_x1 = 4#4.48e-20
+                                for p in y2_y1:
+                                    m = p/x2_x1
+                                    n = (m*m)/(4*6.022*6.022*6*6e6*(0.0359 + (0.000058*(20-TinC))))
+                                    SE_profile.append(n)
+                                SE_profile_list.append(Hexane_SE_actual_list)
+                                
+                                try:    
+                                    popt = curve_fit(func,coverage,Hexane_SE_actual_list)
+                                    decay_const = 1/popt[0][2]
+                                    popt_temp = popt[0][0], popt[0][1], 1/popt[0][2], Hexane_SE_actual_list[0]*1000, Hexane_SE_actual_list[-1]*1000
+                                    popt_list.append(popt_temp)
+                                except:
+                                    popt_list.append(["na","na","na",SE_profile[0]*1000, SE_profile[-1]*1000])
+                                            
+                                            
+                            l = zip(*popt_list)
+                            with open("Params " + "N_" + str(split) + " cDef_" + str(mu_3) + " cBulk_" + str(mu_2) + " cEdge_" + str(mu_1) + " wDef_" + str(sigma_3) + " wBulk_" + str(sigma_2) + " wEdge_" + str(sigma_1) + ".csv","wb") as g:
+                                writer = csv.writer(g)
+                                writer.writerows(l)
+
+
+                                            
+                            r = zip(*SE_profile_list)
+                            with open("Profile " + "N_" + str(split) + " cDef_" + str(mu_3) + " cBulk_" + str(mu_2) + " cEdge_" + str(mu_1) + " wDef_" + str(sigma_3) + " wBulk_" + str(sigma_2) + " wEdge_" + str(sigma_1) + ".csv","wb") as g:
+                                writer = csv.writer(g)
+                                writer.writerows(r)
+   
+
+duration = 1000
+freq = 220
+winsound.Beep(freq, duration)         
+            
+"""          
+
+#            midpoint_y = (SE_profile[0]+SE_profile[-1])/2
+#            for i in range(len(SE_profile)):
+#                if midpoint_y < SE_profile[i]:
+#                    pass
+#                else:
+#                    midpoint_x = SE_profile[i]
+#            try:
+#                popt = [np.array((SE_profile[0],SE_profile[-1],midpoint_x,0)),np.array((0,0,0,0))]                
+#                poptfit = list(curve_fit(func,coverage,Decane_SE_actual_list))
+#            except:
+#                pass
+#                popt = [np.array((SE_profile[0],SE_profile[-1],midpoint_x,0)),np.array((0,0,0,0))]
+#            popt_list.append(popt[0])
+        l = zip(*SE_profile_list)
+        with open(str(split)+".csv","wb") as g:
+            writer = csv.writer(g)
+            writer.writerows(l)
+            
+            
+            
+            
+           
+    popt_array = np.array(popt_list)
+    gamma0_list = popt_array[:,0]
+    gamma1_list = popt_array[:,1]
+    midpoint_list = popt_array[:,2]
+    p_list = popt_array[:,3]
+    delta_gamma = np.subtract(gamma1_list,gamma0_list)
+    
+    
+    
+    Real_IGC_gam1 = [0.04725723, 0.04471484, 0.03851335, 0.04082745, 0.03665321, 0.0319563]
+    Real_IGC_deltagam = [-0.02717509, -0.03199348, -0.02774597, -0.0316344, -0.02359752, -0.03283994]
+    Real_IGC_gam0 = [0.07443232, 0.07670832, 0.06625932, 0.07246185, 0.06025073, 0.06479624]
+    Real_IGC_midp = [0.03295, 0.02819, 0.01839, 0.00946, 0.00904, 0.00746]
+        
+    cost = 0
+    for i in range(len(basal_pop_list)):
+        distance1 = np.sum((np.subtract(Real_IGC_gam1,gamma1_list))**2)
+        distance2 = np.sum((np.subtract(Real_IGC_gam0,gamma0_list))**2)
+        distance3 = np.sum((np.subtract(Real_IGC_midp,midpoint_list))**2)
+        distance4 = np.sum((np.subtract(Real_IGC_deltagam,delta_gamma))**2)
+        cost += (distance1+distance2+distance3+distance4)
+    #cost_list.append(cost**2)
+    
+    
+    plt.figure(figsize=(15,10))
+    plt.suptitle("defect="+str(split)+", sigma_def="+str(sigma_3)+", "+"mu_def="+str(mu_3)+", "+"sigma_bulk="+str(sigma_2)+", "+"mu_bulk="+str(mu_2)+", "+"sigma_edge="+str(sigma_1)+", "+"mu_edge="+str(mu_1))
+    plt.subplot(321)
+    plt.plot(gamma0_list,gamma1_list,"ro")
+    plt.ylabel("gamma1")
+    plt.xlabel("gamma0")
+    
+    plt.subplot(322)
+    plt.plot(gamma1_list,delta_gamma, "bo")
+    plt.ylabel("delta gamma")
+    plt.xlabel("gamma1")
+    
+    plt.subplot(323)
+    plt.plot(gamma0_list,delta_gamma,"ro")
+    plt.ylabel("delta gamma")
+    plt.xlabel("gamma0")
+    
+    plt.subplot(324)
+    plt.plot(midpoint_list,gamma1_list,"ro")
+    plt.ylabel("gamma1")
+    plt.xlabel("midpoint_list")
+    
+    plt.subplot(325)
+    plt.plot(midpoint_list,gamma0_list,"ro")
+    plt.ylabel("gamma0")
+    plt.xlabel("midpoint_list")
+    
+    plt.subplot(326)
+    plt.plot(midpoint_list,delta_gamma,"ro")
+    plt.ylabel("delta gamma")
+    plt.xlabel("midpoint_list")
+    
+    #plt.savefig("C:\Users\Administrator\Desktop\plots from igc sim" + "\defect"+str(int(split*100))+"sigma_def"+str(int(sigma_3*1000))+"mu_def"+str(int(mu_3*1000))+"sigma_bulk"+str(int(sigma_2*1000))+"mu_bulk"+str(int(mu_2*1000))+"sigma_edge"+str(int(sigma_1*1000))+"mu_edge"+str(int(mu_1*1000)))
+    #plt.show()    
+"""    
+    
+    
